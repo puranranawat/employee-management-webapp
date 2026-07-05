@@ -420,13 +420,14 @@ try:
         model="gemini-2.5-flash",
         contents=prompt
     )
-if response.text:
 
-    ai_report = response.text
+    if response.text:
 
-else:
+        ai_report = response.text
 
-    ai_report = "No AI response received."
+    else:
+
+        ai_report = "No AI response received."
 
     print("=" * 60)
     print("Gemini Analysis Completed Successfully")
@@ -435,7 +436,6 @@ else:
 except Exception as error:
 
     print("Gemini API Error")
-
     print(error)
 
     ai_report = None
