@@ -8,9 +8,8 @@ pipeline {
     }
 
     environment {
-        SCANNER_HOME = tool 'SonarScanner'
-        IMAGE_NAME = 'puranranawat/employee-management'
-        IMAGE_TAG = 'latest'
+        IMAGE_NAME = "puranranawat/employee-management"
+        IMAGE_TAG = "1.0"
     }
 
     stages {
@@ -53,31 +52,34 @@ pipeline {
 
         stage('OWASP Dependency Check') {
             steps {
-                dependencyCheck(
-                    odcInstallation: 'Dependency-Check',
-                    additionalArguments: '--scan . --format XML --format HTML'
-                )
-            }
-        }
-
-        stage('Publish Dependency Check Report') {
-            steps {
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                bat '''
+                C:\\dependency-check\\bin\\dependency-check.bat ^
+                --project EmployeeManagement ^
+                --scan . ^
+                --format HTML ^
+                --format XML ^
+                --out dependency-check-report
+                '''
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    bat """
-                    "%SCANNER_HOME%\\bin\\sonar-scanner.bat" ^
-                    -Dsonar.projectKey=EmployeeManagement ^
-                    -Dsonar.projectName=EmployeeManagement ^
-                    -Dsonar.projectVersion=1.0 ^
-                    -Dsonar.sources=src ^
-                    -Dsonar.java.binaries=target/classes ^
-                    -Dsonar.sourceEncoding=UTF-8
-                    """
+                script {
+                    def scannerHome = tool 'SonarScanner'
+
+                    withSonarQubeEnv('SonarQube') {
+
+                        bat """
+                        "${scannerHome}\\bin\\sonar-scanner.bat" ^
+                        -Dsonar.projectKey=EmployeeManagement ^
+                        -Dsonar.projectName=EmployeeManagement ^
+                        -Dsonar.projectVersion=1.0 ^
+                        -Dsonar.sources=src ^
+                        -Dsonar.java.binaries=target/classes ^
+                        -Dsonar.sourceEncoding=UTF-8
+                        """
+                    }
                 }
             }
         }
@@ -93,45 +95,60 @@ pipeline {
         stage('Trivy File System Scan') {
             steps {
                 bat '''
-                trivy fs --format table .
+                trivy fs ^
+                --scanners vuln ^
+                --format table ^
+                .
                 '''
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                bat '''
-                docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
-                '''
+                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% .'
             }
         }
 
         stage('Trivy Docker Image Scan') {
             steps {
                 bat '''
-                trivy image --scanners vuln --timeout 30m %IMAGE_NAME%:%IMAGE_TAG%
+                trivy image ^
+                --scanners vuln ^
+                --timeout 30m ^
+                %IMAGE_NAME%:%IMAGE_TAG%
                 '''
             }
         }
 
         stage('Push Docker Image') {
+
             steps {
+
                 withCredentials([usernamePassword(
+
                     credentialsId: 'dockerhub',
+
                     usernameVariable: 'DOCKER_USER',
+
                     passwordVariable: 'DOCKER_PASS'
+
                 )]) {
 
                     bat '''
                     echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
                     docker push %IMAGE_NAME%:%IMAGE_TAG%
                     '''
+
                 }
+
             }
+
         }
 
         stage('Deploy Container') {
+
             steps {
+
                 bat '''
                 docker stop employee-management 2>NUL
                 docker rm employee-management 2>NUL
@@ -141,7 +158,9 @@ pipeline {
                 -p 8081:8080 ^
                 %IMAGE_NAME%:%IMAGE_TAG%
                 '''
+
             }
+
         }
 
     }
@@ -149,19 +168,27 @@ pipeline {
     post {
 
         success {
+
             echo '======================================='
             echo 'Pipeline completed successfully.'
             echo '======================================='
+
         }
 
         failure {
+
             echo '======================================='
             echo 'Pipeline failed.'
             echo '======================================='
+
         }
 
         always {
+
             cleanWs()
+
         }
+
     }
+
 }
