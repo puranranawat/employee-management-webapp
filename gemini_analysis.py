@@ -1,3 +1,5 @@
+pip install google-generativeai
+
 import os
 from pathlib import Path
 import google.generativeai as genai
