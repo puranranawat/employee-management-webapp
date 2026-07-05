@@ -273,9 +273,11 @@ print(f"Trivy Docker Image Vulnerabilities : {trivy_image_total}")
 
 dependency_count = 0
 
-for dependency in owasp_report.findall(".//dependency"):
+for element in owasp_report.iter():
 
-    dependency_count += 1
+    if element.tag.endswith("dependency"):
+
+        dependency_count += 1
 
 print(f"Dependencies Scanned : {dependency_count}")
 
@@ -352,6 +354,9 @@ print("=" * 60)
 # Configure Gemini
 # ------------------------------------------------------------
 
+print("Gemini Key Length:", len(GEMINI_API_KEY))
+print("Gemini Key Starts With:", GEMINI_API_KEY[:6])
+
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 
@@ -366,6 +371,10 @@ Analyze the following security scan results.
 
 Project Name:
 Employee Management System
+
+Build Information:
+
+{jenkins_build}
 
 Security Summary:
 
@@ -411,8 +420,13 @@ try:
         model="gemini-2.5-flash",
         contents=prompt
     )
+if response.text:
 
     ai_report = response.text
+
+else:
+
+    ai_report = "No AI response received."
 
     print("=" * 60)
     print("Gemini Analysis Completed Successfully")
