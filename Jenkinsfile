@@ -159,6 +159,31 @@ stage('Save Build Information') {
         '''
     }
 }
+        stage('AI Security Analysis') {
+    steps {
+
+        withCredentials([
+
+            string(
+                credentialsId: 'gemini-api-key',
+                variable: 'GEMINI_API_KEY'
+            ),
+
+            string(
+                credentialsId: 'sonar-token',
+                variable: 'SONAR_TOKEN'
+            )
+
+        ]) {
+
+            bat '''
+            python scripts\\gemini_analysis.py
+            '''
+
+        }
+
+    }
+}
 
         stage('Push Docker Image') {
             steps {
@@ -200,30 +225,26 @@ stage('Save Build Information') {
         }
     }
 
-    post {
+post {
 
-        success {
+    success {
 
-            echo '======================================='
-            echo 'Pipeline completed successfully.'
-            echo '======================================='
+        archiveArtifacts artifacts: 'reports/*.*', fingerprint: true
 
-        }
-
-        failure {
-
-            echo '======================================='
-            echo 'Pipeline failed.'
-            echo '======================================='
-
-        }
-
-        //always {
-
-          //  cleanWs()
-
-       // }
+        echo '======================================='
+        echo 'Pipeline completed successfully.'
+        echo '======================================='
 
     }
+
+    failure {
+
+        echo '======================================='
+        echo 'Pipeline failed.'
+        echo '======================================='
+
+    }
+
+}
 
 }
