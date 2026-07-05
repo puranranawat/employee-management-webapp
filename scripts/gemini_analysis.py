@@ -225,3 +225,282 @@ print("Sonar Report Type      :", type(sonar_report))
 print()
 
 print("Ready for Gemini Analysis...")
+
+
+
+# ============================================================
+# PART 2 - PARSE SECURITY REPORTS
+# ============================================================
+
+print("=" * 60)
+print("Parsing Security Reports...")
+print("=" * 60)
+
+
+# ------------------------------------------------------------
+# Trivy File System Report
+# ------------------------------------------------------------
+
+trivy_fs_total = 0
+
+for result in trivy_fs.get("Results", []):
+
+    vulnerabilities = result.get("Vulnerabilities", [])
+
+    trivy_fs_total += len(vulnerabilities)
+
+print(f"Trivy File System Vulnerabilities : {trivy_fs_total}")
+
+
+# ------------------------------------------------------------
+# Trivy Docker Image Report
+# ------------------------------------------------------------
+
+trivy_image_total = 0
+
+for result in trivy_image.get("Results", []):
+
+    vulnerabilities = result.get("Vulnerabilities", [])
+
+    trivy_image_total += len(vulnerabilities)
+
+print(f"Trivy Docker Image Vulnerabilities : {trivy_image_total}")
+
+
+# ------------------------------------------------------------
+# OWASP Dependency Check Report
+# ------------------------------------------------------------
+
+dependency_count = 0
+
+for dependency in owasp_report.findall(".//dependency"):
+
+    dependency_count += 1
+
+print(f"Dependencies Scanned : {dependency_count}")
+
+
+# ------------------------------------------------------------
+# SonarQube Metrics
+# ------------------------------------------------------------
+
+print()
+
+print("SonarQube Metrics")
+
+print("-" * 40)
+
+if sonar_report:
+
+    measures = sonar_report.get("component", {}).get("measures", [])
+
+    for metric in measures:
+
+        metric_name = metric.get("metric")
+
+        metric_value = metric.get("value")
+
+        print(f"{metric_name} : {metric_value}")
+
+else:
+
+    print("No SonarQube data found.")
+
+
+print()
+
+print("=" * 60)
+print("Security Report Parsing Completed")
+print("=" * 60)
+
+
+# ============================================================
+# CREATE SUMMARY OBJECT
+# ============================================================
+
+security_summary = {
+
+    "trivy_fs_vulnerabilities": trivy_fs_total,
+
+    "trivy_image_vulnerabilities": trivy_image_total,
+
+    "dependencies_scanned": dependency_count,
+
+    "sonarqube": sonar_report
+
+}
+
+
+print()
+
+print("Summary Created Successfully")
+
+print(json.dumps(security_summary, indent=4))
+
+
+# ============================================================
+# PART 3 - GOOGLE GEMINI AI ANALYSIS
+# ============================================================
+
+print()
+print("=" * 60)
+print("Starting Google Gemini AI Analysis...")
+print("=" * 60)
+
+
+# ------------------------------------------------------------
+# Configure Gemini
+# ------------------------------------------------------------
+
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+
+# ------------------------------------------------------------
+# Build Prompt
+# ------------------------------------------------------------
+
+prompt = f"""
+You are an expert DevSecOps Security Engineer.
+
+Analyze the following security scan results.
+
+Project Name:
+Employee Management System
+
+Security Summary:
+
+{json.dumps(security_summary, indent=4)}
+
+Please generate a professional security assessment report using the following format.
+
+1. Build Summary
+
+2. Overall Security Status
+
+3. Root Cause Analysis
+
+4. Trivy File System Analysis
+
+5. Docker Image Analysis
+
+6. OWASP Dependency Analysis
+
+7. SonarQube Analysis
+
+8. Security Recommendations
+
+9. Deployment Readiness
+
+10. Final Conclusion
+
+Keep the report professional and suitable for a university dissertation.
+"""
+
+
+print("Prompt Created Successfully")
+print()
+
+
+# ------------------------------------------------------------
+# Send Prompt to Gemini
+# ------------------------------------------------------------
+
+try:
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
+    )
+
+    ai_report = response.text
+
+    print("=" * 60)
+    print("Gemini Analysis Completed Successfully")
+    print("=" * 60)
+
+except Exception as error:
+
+    print("Gemini API Error")
+
+    print(error)
+
+    ai_report = None
+
+
+# ============================================================
+# PART 4 - SAVE AI SECURITY REPORT
+# ============================================================
+
+print()
+print("=" * 60)
+print("Saving AI Security Report...")
+print("=" * 60)
+
+if ai_report:
+
+    # --------------------------------------------------------
+    # Save as TXT
+    # --------------------------------------------------------
+
+    txt_file = REPORTS_DIR / "ai-security-report.txt"
+
+    with open(txt_file, "w", encoding="utf-8") as file:
+        file.write(ai_report)
+
+    print("TXT Report Saved")
+
+
+    # --------------------------------------------------------
+    # Save as Markdown
+    # --------------------------------------------------------
+
+    md_file = REPORTS_DIR / "ai-security-report.md"
+
+    with open(md_file, "w", encoding="utf-8") as file:
+        file.write(ai_report)
+
+    print("Markdown Report Saved")
+
+
+    # --------------------------------------------------------
+    # Save as JSON
+    # --------------------------------------------------------
+
+    json_file = REPORTS_DIR / "ai-security-report.json"
+
+    report_json = {
+        "project": "Employee Management System",
+        "generated_by": "Google Gemini",
+        "status": "SUCCESS",
+        "report": ai_report
+    }
+
+    with open(json_file, "w", encoding="utf-8") as file:
+        json.dump(report_json, file, indent=4)
+
+    print("JSON Report Saved")
+
+
+    # --------------------------------------------------------
+    # Display Report
+    # --------------------------------------------------------
+
+    print()
+    print("=" * 60)
+    print("AI SECURITY REPORT")
+    print("=" * 60)
+    print()
+
+    print(ai_report)
+
+    print()
+    print("=" * 60)
+    print("All Reports Generated Successfully")
+    print("=" * 60)
+
+else:
+
+    print("AI Report was not generated.")
+
+
+
