@@ -20,23 +20,31 @@ pipeline {
             }
         }
 
+        stage('Verify Maven') {
+    steps {
+        bat 'mvn -version'
+    }
+}
+
+stage('Verify Trivy') {
+    steps {
+        bat 'trivy --version'
+    }
+}
+
+stage('Compile') {
+    steps {
+        bat 'mvn clean compile'
+    }
+}
+
         stage('Verify Java') {
             steps {
                 bat 'java -version'
             }
         }
 
-        stage('Verify Maven') {
-            steps {
-                bat 'mvn -version'
-            }
-        }
 
-        stage('Compile') {
-            steps {
-                bat 'mvn clean compile'
-            }
-        }
 
         stage('Run Unit Tests') {
             steps {
