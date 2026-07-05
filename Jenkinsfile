@@ -1,39 +1,68 @@
 pipeline {
+
     agent any
 
     tools {
-        jdk 'JDK17'
-        maven 'Maven'
+        jdk 'JDK21'
+        maven 'Maven3'
     }
 
     environment {
         SCANNER_HOME = tool 'SonarScanner'
-        IMAGE_NAME = "puranranawat/employee-management:latest"
+        IMAGE_NAME = 'puranranawat/employee-management'
+        IMAGE_TAG = 'latest'
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Source') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Build') {
+        stage('Verify Java') {
+            steps {
+                bat 'java -version'
+            }
+        }
+
+        stage('Verify Maven') {
+            steps {
+                bat 'mvn -version'
+            }
+        }
+
+        stage('Compile') {
             steps {
                 bat 'mvn clean compile'
             }
         }
 
-        stage('Test') {
+        stage('Run Unit Tests') {
             steps {
                 bat 'mvn test'
             }
         }
 
-        stage('Package') {
+        stage('Package Application') {
             steps {
-                bat 'mvn clean package -DskipTests'
+                bat 'mvn package -DskipTests'
+            }
+        }
+
+        stage('OWASP Dependency Check') {
+            steps {
+                dependencyCheck(
+                    odcInstallation: 'Dependency-Check',
+                    additionalArguments: '--scan . --format XML --format HTML'
+                )
+            }
+        }
+
+        stage('Publish Dependency Check Report') {
+            steps {
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
 
@@ -42,10 +71,12 @@ pipeline {
                 withSonarQubeEnv('SonarQube') {
                     bat """
                     "%SCANNER_HOME%\\bin\\sonar-scanner.bat" ^
-                    -Dsonar.projectKey=employee-management ^
-                    -Dsonar.projectName=employee-management ^
+                    -Dsonar.projectKey=EmployeeManagement ^
+                    -Dsonar.projectName=EmployeeManagement ^
+                    -Dsonar.projectVersion=1.0 ^
                     -Dsonar.sources=src ^
-                    -Dsonar.java.binaries=target/classes
+                    -Dsonar.java.binaries=target/classes ^
+                    -Dsonar.sourceEncoding=UTF-8
                     """
                 }
             }
@@ -59,22 +90,9 @@ pipeline {
             }
         }
 
-        stage('OWASP Dependency Check') {
-            steps {
-                dependencyCheck additionalArguments: '--scan .',
-                odcInstallation: 'Dependency-Check'
-            }
-        }
-
-        stage('Publish OWASP Report') {
-            steps {
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
-                bat 'docker build -t %IMAGE_NAME% .'
+                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% .'
             }
         }
 
@@ -88,7 +106,7 @@ pipeline {
 
                     bat '''
                     echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
-                    docker push %IMAGE_NAME%
+                    docker push %IMAGE_NAME%:%IMAGE_TAG%
                     '''
                 }
             }
@@ -97,26 +115,35 @@ pipeline {
         stage('Deploy Container') {
             steps {
                 bat '''
-                docker stop employee-management || exit 0
-                docker rm employee-management || exit 0
-                docker run -d --name employee-management -p 8081:8080 %IMAGE_NAME%
+                docker stop employee-management 2>NUL
+                docker rm employee-management 2>NUL
+
+                docker run -d ^
+                --name employee-management ^
+                -p 8081:8080 ^
+                %IMAGE_NAME%:%IMAGE_TAG%
                 '''
             }
         }
+
     }
 
     post {
 
-        always {
-            cleanWs()
-        }
-
         success {
-            echo 'Pipeline executed successfully.'
+            echo '======================================='
+            echo 'Pipeline completed successfully.'
+            echo '======================================='
         }
 
         failure {
+            echo '======================================='
             echo 'Pipeline failed.'
+            echo '======================================='
+        }
+
+        always {
+            cleanWs()
         }
     }
 }
