@@ -355,8 +355,8 @@ print("=" * 60)
 # ------------------------------------------------------------
 
 print("Gemini Key Length:", len(GEMINI_API_KEY))
-print("Gemini Key Starts With:", GEMINI_API_KEY[:6])
-
+print("Gemini Key Length:", len(GEMINI_API_KEY))
+print("Gemini API Key Loaded Successfully")
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 
