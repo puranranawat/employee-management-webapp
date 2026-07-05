@@ -51,17 +51,23 @@ pipeline {
         }
 
         stage('OWASP Dependency Check') {
-            steps {
-                bat '''
-                C:\\dependency-check\\bin\\dependency-check.bat ^
-                --project EmployeeManagement ^
-                --scan . ^
-                --format HTML ^
-                --format XML ^
-                --out dependency-check-report
-                '''
-            }
-        }
+    steps {
+
+        bat '''
+        if not exist dependency-check-report (
+            mkdir dependency-check-report
+        )
+
+        C:\\dependency-check\\bin\\dependency-check.bat ^
+        --project EmployeeManagement ^
+        --scan . ^
+        --format HTML ^
+        --format XML ^
+        --out dependency-check-report
+        '''
+
+    }
+}
 
         stage('SonarQube Analysis') {
             steps {
