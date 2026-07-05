@@ -8,9 +8,11 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = "puranranawat/employee-management"
-        IMAGE_TAG = "1.0"
-    }
+    IMAGE_NAME = "puranranawat/employee-management"
+    IMAGE_TAG = "1.0"
+
+    REPORT_DIR = "reports"
+}
 
     stages {
 
@@ -106,16 +108,27 @@ stage('Compile') {
             }
         }
 
-        stage('Trivy File System Scan') {
-            steps {
-                bat '''
-                trivy fs ^
-                --scanners vuln ^
-                --format table ^
-                .
-                '''
-            }
-        }
+        stage('Create Reports Directory') {
+    steps {
+        bat '''
+        if not exist reports (
+            mkdir reports
+        )
+        '''
+    }
+}
+
+stage('Trivy File System Scan') {
+    steps {
+        bat '''
+        trivy fs ^
+        --scanners vuln ^
+        --format json ^
+        -o reports\\trivy-fs-report.json ^
+        .
+        '''
+    }
+}
 
         stage('Build Docker Image') {
             steps {
@@ -123,16 +136,29 @@ stage('Compile') {
             }
         }
 
-        stage('Trivy Docker Image Scan') {
-            steps {
-                bat '''
-                trivy image ^
-                --scanners vuln ^
-                --timeout 30m ^
-                %IMAGE_NAME%:%IMAGE_TAG%
-                '''
-            }
-        }
+stage('Trivy Docker Image Scan') {
+    steps {
+        bat '''
+        trivy image ^
+        --scanners vuln ^
+        --timeout 30m ^
+        --format json ^
+        -o reports\\trivy-image-report.json ^
+        %IMAGE_NAME%:%IMAGE_TAG%
+        '''
+    }
+}
+stage('Save Build Information') {
+    steps {
+        bat '''
+        echo Build Number : %BUILD_NUMBER% > reports\\jenkins-build-info.txt
+        echo Build ID : %BUILD_ID% >> reports\\jenkins-build-info.txt
+        echo Job Name : %JOB_NAME% >> reports\\jenkins-build-info.txt
+        echo Build URL : %BUILD_URL% >> reports\\jenkins-build-info.txt
+        echo Workspace : %WORKSPACE% >> reports\\jenkins-build-info.txt
+        '''
+    }
+}
 
         stage('Push Docker Image') {
             steps {
