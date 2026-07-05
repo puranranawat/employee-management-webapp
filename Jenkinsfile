@@ -218,9 +218,9 @@ stage('Save Build Information') {
 
         }
 
-        always {
+        //always {
 
-            cleanWs()
+          //  cleanWs()
 
         }
 
