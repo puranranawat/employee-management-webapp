@@ -90,9 +90,27 @@ pipeline {
             }
         }
 
+        stage('Trivy File System Scan') {
+            steps {
+                bat '''
+                trivy fs --format table .
+                '''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
-                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% .'
+                bat '''
+                docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
+                '''
+            }
+        }
+
+        stage('Trivy Docker Image Scan') {
+            steps {
+                bat '''
+                trivy image --scanners vuln --timeout 30m %IMAGE_NAME%:%IMAGE_TAG%
+                '''
             }
         }
 
