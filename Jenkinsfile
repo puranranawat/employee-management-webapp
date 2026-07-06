@@ -7,13 +7,14 @@ pipeline {
         maven 'Maven3'
     }
 
-    environment {
+environment {
     IMAGE_NAME = "puranranawat/employee-management"
     IMAGE_TAG = "1.0"
 
     REPORT_DIR = "reports"
-}
 
+    ECR_REPOSITORY = "733050719452.dkr.ecr.eu-north-1.amazonaws.com/employee-management"
+}
     stages {
 
         stage('Checkout Source') {
@@ -184,45 +185,88 @@ stage('Save Build Information') {
 
     }
 }
+        
+stage('AWS CLI Verification') {
+    steps {
+        bat '''
+        aws --version
+        aws sts get-caller-identity
+        '''
+    }
+}
 
-        stage('Push Docker Image') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
+        stage('Login to Amazon ECR') {
+    steps {
 
-                    bat '''
-                    @echo off
+        withCredentials([
+            usernamePassword(
+                credentialsId: 'aws-credentials',
+                usernameVariable: 'AWS_ACCESS_KEY_ID',
+                passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+            )
+        ]) {
 
-                    docker logout
+            bat '''
+            aws configure set aws_access_key_id %AWS_ACCESS_KEY_ID%
+            aws configure set aws_secret_access_key %AWS_SECRET_ACCESS_KEY%
+            aws configure set region eu-north-1
 
-                    <nul set /p="%DOCKER_PASS%" | docker login -u %DOCKER_USER% --password-stdin
+            aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 733050719452.dkr.ecr.eu-north-1.amazonaws.com
+            '''
 
-                    docker push %IMAGE_NAME%:%IMAGE_TAG%
-
-                    docker logout
-                    '''
-                }
-            }
         }
+    }
+}
 
-        stage('Deploy Container') {
-            steps {
+        stage('Push Image to Amazon ECR') {
+    steps {
 
-                bat '''
-                docker stop employee-management 2>NUL
-                docker rm employee-management 2>NUL
+        bat '''
+        docker tag %IMAGE_NAME%:%IMAGE_TAG% 733050719452.dkr.ecr.eu-north-1.amazonaws.com/employee-management:%IMAGE_TAG%
 
-                docker run -d ^
-                --name employee-management ^
-                -p 8081:8080 ^
-                %IMAGE_NAME%:%IMAGE_TAG%
-                '''
+        docker push 733050719452.dkr.ecr.eu-north-1.amazonaws.com/employee-management:%IMAGE_TAG%
+        '''
 
-            }
-        }
+    }
+}
+
+
+
+stage('Deploy to Amazon EKS') {
+    steps {
+
+        bat '''
+        aws eks update-kubeconfig --region eu-north-1 --name employee-management-cluster
+
+        kubectl apply -f k8s/deployment.yaml
+
+        kubectl apply -f k8s/service.yaml
+
+        kubectl rollout status deployment/employee-management
+        '''
+
+    }
+}
+
+        
+        stage('Verify Deployment') {
+    steps {
+
+        bat '''
+        kubectl rollout status deployment/employee-management
+
+        kubectl get deployments
+
+        kubectl get pods
+
+        kubectl get svc
+        '''
+
+    }
+}
+
+
+
     }
 
 post {
